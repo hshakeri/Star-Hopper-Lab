@@ -1,0 +1,15 @@
+{
+  "name": "Star Hopper Lab",
+  "short_name": "Star Hopper",
+  "description": "A kids' space platformer that is secretly a research lab: discover each world's hidden law with your own data.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0e23",
+  "theme_color": "#0a0e23",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

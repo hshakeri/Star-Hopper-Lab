@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Star Hopper Lab</title>
+  <meta name="description" content="A kids' space platformer that is secretly a research lab: discover each world's hidden law with your own data, then reprogram the universe.">
+  <meta name="theme-color" content="#0a0e23">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg?v=1" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the game</a>
+
+  <header id="topbar">
+    <div class="logo">⭐ STAR HOPPER LAB</div>
+    <nav aria-label="Main">
+      <button id="nav-lab" type="button">🚪 Lab</button>
+      <button id="nav-museum" type="button">🏛 Museum</button>
+      <button id="btn-mute" type="button" aria-pressed="false">🔊 Sound on</button>
+    </nav>
+  </header>
+
+  <main id="main">
+
+    <!-- ============ TITLE ============ -->
+    <section id="screen-title" class="screen">
+      <div class="title-card">
+        <h1>Star Hopper Lab</h1>
+        <p class="tagline">Reprogram the universe — right after you discover its laws.</p>
+        <p class="title-blurb">Every world runs on a hidden rule. Pilot Hopper, collect your own data,
+          crack the rule, and prove it with a prediction.</p>
+        <label for="player-name">Scientist name (for your journal byline)</label>
+        <input id="player-name" maxlength="24" autocomplete="off">
+        <button id="btn-start" class="big accent" type="button">🚀 Enter the Lab</button>
+        <p class="footnote">
+          <a href="parents.html">For parents</a> · <a href="teachers.html">For teachers</a>
+          · no accounts · no ads · saves stay on this device
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ LAB HUB ============ -->
+    <section id="screen-lab" class="screen hidden">
+      <h2>Choose an expedition</h2>
+      <p id="lab-meta" class="lab-meta"></p>
+      <div class="world-grid">
+        <button class="world-card" id="world-terra" type="button">
+          <span class="world-emoji">🌍</span>
+          <b>Terra Data</b>
+          <span class="world-desc">Measurement &amp; variables</span>
+          <span class="world-status" id="terra-status">Mission 1: The Engine Law</span>
+        </button>
+        <div class="world-card locked" aria-disabled="true">
+          <span class="world-emoji">🌪</span><b>Ventus</b>
+          <span class="world-desc">Noise &amp; replication</span>
+          <span class="world-status">🔒 Locked — a future expedition</span>
+        </div>
+        <div class="world-card locked" aria-disabled="true">
+          <span class="world-emoji">🪐</span><b>Correlata</b>
+          <span class="world-desc">Relationships &amp; models</span>
+          <span class="world-status">🔒 Locked — a future expedition</span>
+        </div>
+        <div class="world-card locked" aria-disabled="true">
+          <span class="world-emoji">🐾</span><b>Census-7</b>
+          <span class="world-desc">Sampling &amp; bias</span>
+          <span class="world-status">🔒 Locked — a future expedition</span>
+        </div>
+        <div class="world-card locked" aria-disabled="true">
+          <span class="world-emoji">🛰</span><b>Sorter Station</b>
+          <span class="world-desc">Classification rules</span>
+          <span class="world-status">🔒 Locked — a future expedition</span>
+        </div>
+        <div class="world-card locked" aria-disabled="true">
+          <span class="world-emoji">🌊</span><b>Tempus</b>
+          <span class="world-desc">Data over time</span>
+          <span class="world-status">🔒 Locked — the capstone</span>
+        </div>
+      </div>
+      <button id="btn-museum" class="big" type="button">🏛 Visit the Lab Museum</button>
+    </section>
+
+    <!-- ============ MISSION ============ -->
+    <section id="screen-mission" class="screen hidden">
+      <div id="mission-banner">
+        <div id="mission-title-line">
+          <b id="mission-name">The Engine Law</b>
+          <span id="mission-question" class="mission-question"></span>
+        </div>
+        <ol id="step-tracker" aria-label="Research steps">
+          <li>Question</li>
+          <li>Collect</li>
+          <li>Chart</li>
+          <li>Predict</li>
+          <li>Test</li>
+          <li>Publish</li>
+        </ol>
+      </div>
+      <p id="phase-hint" class="phase-hint"></p>
+
+      <div class="mission-cols">
+        <section id="world-pane" aria-label="Jump field">
+          <div class="canvas-wrap">
+            <canvas id="world-canvas" width="640" height="360"
+              aria-label="Jump field: Hopper the robot jumps across alien terrain. A metre ruler runs along the ground."></canvas>
+            <div id="impact-word" class="hidden" aria-hidden="true"></div>
+          </div>
+          <div id="speech-bubble" class="hidden"></div>
+
+          <div id="vars-panel">
+            <label class="engine-label" for="engine-slider">hopper.engine
+              <input type="range" id="engine-slider" min="1" max="10" step="1" value="3">
+              <output id="engine-value" for="engine-slider">3</output>
+              <span id="engine-locked-note" class="locked-note"></span>
+            </label>
+            <span class="locked-chip">gravity = 10 <em>(locked)</em></span>
+            <span class="locked-chip">mass = 1 <em>(locked)</em></span>
+          </div>
+
+          <div id="action-bar">
+            <button id="btn-jump" class="big" type="button" title="Shortcut: J">🦘 Jump!</button>
+            <button id="btn-phase-next" class="big accent" type="button"></button>
+          </div>
+
+          <div id="predict-panel" class="hidden mission-panel">
+            <p id="predict-prompt"></p>
+            <div class="predict-row">
+              <label for="predict-input">My prediction:
+                <input id="predict-input" type="number" min="0" max="52" step="0.5"> m
+              </label>
+              <button id="btn-commit" class="big accent" type="button">🔒 Lock it in!</button>
+            </div>
+          </div>
+
+          <div id="test-panel" class="hidden mission-panel">
+            <div class="predict-row">
+              <button id="btn-official" class="big accent" type="button">🚀 Official Run!</button>
+              <button id="btn-retry" class="hidden" type="button">🔁 Predict again</button>
+            </div>
+            <div id="test-result" class="hidden"></div>
+          </div>
+        </section>
+
+        <section id="side-pane">
+          <div role="tablist" id="side-tabs" aria-label="Lab tools">
+            <button role="tab" id="tab-notebook" aria-selected="true" type="button">📓 Notebook</button>
+            <button role="tab" id="tab-console" aria-selected="false" type="button">⌨️ KidCode</button>
+            <button role="tab" id="tab-journal" aria-selected="false" type="button" disabled>📰 Journal</button>
+          </div>
+
+          <div id="panel-notebook" role="tabpanel" aria-label="Field Notebook">
+            <div class="table-scroll">
+              <table id="notebook-table">
+                <caption>Field Notebook — every jump is a data point</caption>
+                <thead>
+                  <tr><th scope="col">Trial</th><th scope="col">engine</th><th scope="col">distance (m)</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <canvas id="chart-canvas" width="560" height="260" aria-label="Live dot plot of landing distances"></canvas>
+            <p id="chart-summary" class="chart-summary" aria-live="polite"></p>
+          </div>
+
+          <div id="panel-console" role="tabpanel" class="hidden" aria-label="KidCode console">
+            <div id="template-area"></div>
+            <textarea id="free-code" class="hidden" rows="9" spellcheck="false"
+              aria-label="KidCode editor — write your own program"></textarea>
+            <div class="console-row">
+              <button id="btn-run" class="big" type="button" title="Shortcut: R">▶ Run code</button>
+              <button id="btn-mode-toggle" type="button">✏️ Free typing</button>
+            </div>
+            <div id="console-error" role="alert" class="hidden"></div>
+            <pre id="console-output" aria-label="Code output"></pre>
+          </div>
+
+          <div id="panel-journal" role="tabpanel" class="hidden" aria-label="The Hopper Journal">
+            <div id="publish-form">
+              <h3>📰 The Hopper Journal</h3>
+              <label for="article-title">Title</label>
+              <input id="article-title" maxlength="60" placeholder="The Engine Law!">
+              <p class="byline-row">by <span id="article-byline"></span></p>
+              <img id="article-chart-img" alt="Your chart" class="article-chart">
+              <fieldset id="tile-groups">
+                <legend>Build your conclusion from word tiles</legend>
+                <div class="tile-row" id="tiles-1"></div>
+                <div class="tile-row" id="tiles-2"></div>
+                <div class="tile-row" id="tiles-3"></div>
+              </fieldset>
+              <p id="conclusion-preview" class="conclusion-preview"></p>
+              <label for="article-note">Add your own note (optional)</label>
+              <input id="article-note" maxlength="120" placeholder="I noticed that...">
+              <button id="btn-publish" class="big accent" type="button" disabled>📰 Publish!</button>
+              <div id="quackers-box" class="hidden">
+                <p id="quackers-text"></p>
+                <div class="predict-row">
+                  <button id="btn-more-trials" type="button">🔁 Collect more first</button>
+                  <button id="btn-publish-anyway" type="button">📰 Publish now</button>
+                </div>
+              </div>
+            </div>
+            <div id="publish-done" class="hidden">
+              <h3 id="published-title"></h3>
+              <p>Your finding is now an exhibit in the Lab Museum, and the law joined your Rule Card codex.</p>
+              <div class="predict-row">
+                <button id="btn-done-museum" class="big accent" type="button">🏛 See the Museum</button>
+                <button id="btn-done-lab" class="big" type="button">← Back to the Lab</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ MUSEUM ============ -->
+    <section id="screen-museum" class="screen hidden">
+      <h2>🏛 Lab Museum</h2>
+      <p class="lab-meta">Published findings and discovered laws — the trophies of research.</p>
+      <div id="exhibit-list" class="exhibit-grid"></div>
+      <h3>📜 Rule Card Codex</h3>
+      <div id="codex-list" class="codex-grid"></div>
+      <button id="btn-back-lab" class="big" type="button">← Back to the Lab</button>
+    </section>
+  </main>
+
+  <script src="js/core/rng.js?v=1"></script>
+  <script src="js/core/stats.js?v=1"></script>
+  <script src="js/core/sim.js?v=1"></script>
+  <script src="js/core/chartscale.js?v=1"></script>
+  <script src="js/core/kidcode.js?v=1"></script>
+  <script src="js/core/missions.js?v=1"></script>
+  <script src="js/core/save.js?v=1"></script>
+  <script src="js/game/jokes.js?v=1"></script>
+  <script src="js/game/audio.js?v=1"></script>
+  <script src="js/game/chart.js?v=1"></script>
+  <script src="js/game/notebook.js?v=1"></script>
+  <script src="js/game/world.js?v=1"></script>
+  <script src="js/game/console.js?v=1"></script>
+  <script src="js/game/journal.js?v=1"></script>
+  <script src="js/game/main.js?v=1"></script>
+</body>
+</html>
