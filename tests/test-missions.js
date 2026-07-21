@@ -4,7 +4,8 @@ const missions = require('../js/core/missions.js');
 const sim = require('../js/core/sim.js');
 const { makeRNG } = require('../js/core/rng.js');
 
-const WORLD_WIDTH_M = 52; // must match the canvas renderer's world width
+// single source of truth: the same constant the canvas renderer consumes
+const WORLD_WIDTH_M = missions.WORLD_WIDTH_M;
 
 // BALANCE: every official-run target must have >= 2 winning whole-metre
 // predictions, and near-misses must be visibly off (>= 20 px).
@@ -70,6 +71,18 @@ test('missions: target engine is untested and prefers the interior', () => {
   // everything tested: still returns something sane
   const t3 = missions.chooseTargetEngine(m, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], makeRNG(2));
   ok(t3 >= 1 && t3 <= 10);
+});
+
+test('missions: the renderer consumes the SAME scale constants the sweep verifies', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const worldSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'game', 'world.js'), 'utf8');
+  ok(worldSrc.indexOf('window.SHL.missions.PX_PER_M') >= 0,
+    'world.js must read PX_PER_M from the missions module, not redeclare it');
+  ok(worldSrc.indexOf('window.SHL.missions.WORLD_WIDTH_M') >= 0,
+    'world.js must read WORLD_WIDTH_M from the missions module, not redeclare it');
+  eq(missions.WORLD_WIDTH_M, 52);
+  eq(missions.PX_PER_M, 12);
 });
 
 test('missions: locked variables are declared for the fair-test display', () => {

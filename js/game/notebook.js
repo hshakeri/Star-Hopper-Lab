@@ -69,9 +69,11 @@
       `<tr><td>${t.n}</td><td>${t.engine != null ? t.engine : '—'}</td><td>${window.SHL.chartscale.formatValue(t.distance)}</td></tr>`
     );
     r.tableBody.innerHTML = rows.join('');
-    // chart + summary
+    // chart + summary — only touch the aria-live region when the summary
+    // actually changed, so overlay redraws (e.g. dragging the prediction
+    // flag) don't spam screen readers
     const summary = chart().renderDotPlot(r.chartCanvas, state.trials, state.overlays);
-    r.summaryEl.textContent = summary;
+    if (r.summaryEl.textContent !== summary) r.summaryEl.textContent = summary;
   }
 
   function chartDataURL() {

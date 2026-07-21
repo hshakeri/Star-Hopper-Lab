@@ -36,7 +36,19 @@
     (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
     saveState.settings.reducedMotion;
 
-  function persist() { S.save.store(saveState); }
+  let warnedSaveFailure = false;
+  function persist() {
+    if (S.save.store(saveState)) return;
+    // storage full (chart PNGs add up): degrade gracefully — drop the
+    // embedded images from the oldest articles, keep every word and number
+    for (const a of saveState.articles.slice(0, -5)) delete a.chartDataURL;
+    for (const c of saveState.ruleCards.slice(0, -5)) delete c.chartDataURL;
+    if (S.save.store(saveState)) return;
+    if (!warnedSaveFailure) {
+      warnedSaveFailure = true;
+      say('Heads up: this device is not letting me save progress right now. You can keep playing!');
+    }
+  }
 
   // ---------- screens ----------
 
@@ -246,6 +258,8 @@
     items.forEach((li, i) => {
       li.classList.toggle('active', i === idx);
       li.classList.toggle('done', i < idx);
+      if (i === idx) li.setAttribute('aria-current', 'step');
+      else li.removeAttribute('aria-current');
     });
     $('phase-hint').textContent = HINTS[phase];
 
@@ -268,7 +282,13 @@
       $('engine-locked-note').textContent = '';
     }
 
-    S.gameconsole.setEnabled(true);
+    // a fair test locks EVERY route to the tuned variable, code included
+    if (phase === 'predict' || phase === 'test') {
+      S.gameconsole.setEnabled(false,
+        'The console is locked while the official run is armed — a fair test means no tweaking mid-experiment!');
+    } else {
+      S.gameconsole.setEnabled(true);
+    }
 
     if (phase === 'question') {
       say(M.mission.question);
@@ -350,8 +370,11 @@
     }
     setEngine(M.targetEngine, { quiet: true });
     $('engine-slider').disabled = true;
+    // honest framing: only claim "never tested" when it's true
+    const untested = tested.indexOf(M.targetEngine) < 0;
     $('predict-prompt').innerHTML =
-      `The official run will use <b>engine = ${M.targetEngine}</b> — a setting you never tested! ` +
+      `The official run will use <b>engine = ${M.targetEngine}</b> — ` +
+      (untested ? 'a setting you never tested! ' : 'a setting you measured before. Can you nail it exactly? ') +
       `How far will Hopper fly? Type a number or drag the flag on the field.`;
     const input = $('predict-input');
     input.value = M.predictedM != null ? M.predictedM : '';
@@ -378,6 +401,7 @@
     S.world.setPrediction(M.predictedM, M.mission.toleranceM, true);
     S.audio.lock();
     setPhase('test');
+    $('btn-official').disabled = false;
     $('test-result').classList.add('hidden');
     say(`Locked: ${S.chartscale.formatValue(M.predictedM)} m. No take-backs — that's the fun part!`);
   }
@@ -428,7 +452,9 @@
     else if (ev.withinBand) say(S.jokes.draw(isBest ? 'newBest' : 'nearMiss'));
     else say(S.jokes.draw('bigMiss'));
 
-    $('btn-official').disabled = false;
+    // one committed prediction = one official run; re-arming requires
+    // going back through Predict (no double-logging to inflate n)
+    $('btn-official').disabled = true;
     $('btn-retry').classList.remove('hidden');
     $('btn-phase-next').classList.remove('hidden');
     $('btn-phase-next').textContent = '📰 Write it up! →';
@@ -481,7 +507,7 @@
       say('🏅 Replicator badge: you collected 5+ trials before concluding. That\'s real science.');
     }
     const mid = M.mission.id;
-    saveState.missions[mid] = Object.assign({}, saveState.missions[mid], { complete: true });
+    saveState.missions[mid] = Object.assign({}, saveState.missions[mid], { complete: true, replayActive: null });
     saveState.sol += 1;
     persist();
     S.audio.publish();
@@ -496,12 +522,22 @@
 
   function enterTerra() {
     const mid = 'terra-1';
-    const rec = saveState.missions[mid];
+    let rec = saveState.missions[mid];
     M.replay = !!(rec && rec.complete);
+    let resumingReplay = false;
     if (M.replay) {
-      const replays = (rec.replays || 0) + 1;
-      saveState.missions[mid] = Object.assign({}, rec, { replays });
-      M.params = S.sim.mysteryTerraParams(saveState.seed + replays * 1000);
+      // an interrupted Mystery Dataset resumes with the SAME hidden law and
+      // its collected trials — honest data is never silently discarded
+      if (rec.replayActive) {
+        resumingReplay = true;
+      } else {
+        const replays = (rec.replays || 0) + 1;
+        saveState.missions[mid] = rec = Object.assign({}, rec, {
+          replays, replayActive: replays, trials: [],
+        });
+        persist();
+      }
+      M.params = S.sim.mysteryTerraParams(saveState.seed + (rec.replayActive || rec.replays) * 1000);
     } else {
       M.params = S.sim.TERRA_PARAMS;
     }
@@ -514,13 +550,18 @@
     M.squadUnlocked = false;
     M.publishCtx = null;
 
+    // abandon any in-flight animation cleanly — re-entering mid-jump must
+    // never leave the animating flag stuck (permanent soft-lock otherwise)
+    animating = false;
+    pendingJumps = [];
     S.notebook.reset();
     S.world.reset();
     S.gameconsole.clearOutput();
     S.gameconsole.clearError();
 
-    // restore an unfinished expedition's data (never throw data away)
-    if (rec && !rec.complete && rec.trials && rec.trials.length) {
+    // restore an unfinished expedition's data (never throw data away) —
+    // both first-run progress and an interrupted mystery replay
+    if (rec && rec.trials && rec.trials.length && (!rec.complete || resumingReplay)) {
       for (const t of rec.trials) {
         if (t.engine != null) S.notebook.addAuto(t.engine, t.distance);
         else S.notebook.addManual(t.distance);
@@ -700,6 +741,14 @@
       if (e.key === 'j' || e.key === 'J') { e.preventDefault(); $('btn-jump').click(); }
       if (e.key === 'r' || e.key === 'R') { e.preventDefault(); $('btn-run').click(); }
     });
+
+    // respect prefers-reduced-motion changes mid-session, not just at boot
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const apply = () => S.world.setReducedMotion(reducedMotion());
+      if (mq.addEventListener) mq.addEventListener('change', apply);
+      else if (mq.addListener) mq.addListener(apply);
+    }
 
     // service worker (PWA: works offline after first visit)
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {

@@ -35,13 +35,20 @@
     const baseline = H - B;
 
     ctx.clearRect(0, 0, W, H);
-    ctx.font = '13px ui-monospace, Menlo, monospace';
+    ctx.font = '15px ui-monospace, Menlo, monospace';
 
     const values = trials.map((t) => t.distance);
     const dataMax = values.length ? Math.max.apply(null, values) : 10;
-    const extra = Math.max(o.predictedM || 0, o.prevOfficialM || 0);
+    // the axis must contain everything drawn on it, including the whole
+    // prediction band — a band running off the edge would lie about its width
+    const extra = Math.max(
+      o.predictedM != null && o.toleranceM != null ? o.predictedM + o.toleranceM : 0,
+      o.predictedM || 0,
+      o.prevOfficialM || 0
+    );
     const scale = cs.niceScale(0, Math.max(10, dataMax, extra), { forceZero: true });
     const xpx = (v) => L + ((v - scale.min) / (scale.max - scale.min)) * innerW;
+    const clampTextX = (x) => Math.min(W - R - 8, Math.max(L + 8, x));
 
     // title
     ctx.fillStyle = COLORS.label;
@@ -94,7 +101,7 @@
       ctx.lineWidth = 1;
       ctx.fillStyle = COLORS.predict;
       ctx.textAlign = 'center';
-      ctx.fillText('your prediction', xp, T);
+      ctx.fillText('your prediction', clampTextX(xp), T);
     }
 
     // previous official attempt (ghost)
@@ -111,16 +118,25 @@
       ctx.fillText('last try', xg, T + 8);
     }
 
-    // dots, stacked in 0.5 m bins
+    // dots, stacked in 0.5 m bins and drawn at the bin centre (a standard
+    // binned dot plot: every trial visible, none drawn on top of another)
+    const counts = {};
+    for (const t of trials) {
+      const bin = Math.round(t.distance * 2) / 2;
+      counts[bin] = (counts[bin] || 0) + 1;
+    }
+    const tallest = Math.max.apply(null, [1].concat(Object.keys(counts).map((b) => counts[b])));
+    // squeeze the stack spacing so even a huge pile of repeats stays on the
+    // canvas — repeated trials must never silently vanish
+    const spacing = Math.min(15, (baseline - T - 34) / tallest);
     const stacks = {};
-    const drawn = [];
     for (const t of trials) {
       const bin = Math.round(t.distance * 2) / 2;
       stacks[bin] = (stacks[bin] || 0) + 1;
-      const x = xpx(t.distance);
-      const y = baseline - 10 - (stacks[bin] - 1) * 15;
+      const x = xpx(bin);
+      const y = baseline - 10 - (stacks[bin] - 1) * spacing;
       ctx.beginPath();
-      ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+      ctx.arc(x, y, Math.min(5.5, Math.max(2.5, spacing / 2.5)), 0, Math.PI * 2);
       ctx.fillStyle = COLORS.dot;
       ctx.fill();
       ctx.strokeStyle = COLORS.dotEdge;
@@ -128,9 +144,8 @@
       if (t.engine != null && stacks[bin] === 1) {
         ctx.fillStyle = COLORS.label;
         ctx.textAlign = 'center';
-        ctx.fillText('e' + t.engine, x, y - 12);
+        ctx.fillText('e' + t.engine, x, baseline - 10 - counts[bin] * spacing - 6);
       }
-      drawn.push({ x, y, trial: t });
     }
 
     // gap brackets between consecutive distinct engine settings — Terra's aha
@@ -144,8 +159,10 @@
       for (let i = 1; i < engines.length; i++) {
         // only bracket *adjacent* engine settings: a fair "+1" comparison
         if (engines[i] - engines[i - 1] !== 1) continue;
-        const a = xpx(byEngine[engines[i - 1]]);
-        const b = xpx(byEngine[engines[i]]);
+        // bracket ends align with the drawn (bin-centred) dots; the printed
+        // gap number stays the exact measured difference
+        const a = xpx(Math.round(byEngine[engines[i - 1]] * 2) / 2);
+        const b = xpx(Math.round(byEngine[engines[i]] * 2) / 2);
         const gap = byEngine[engines[i]] - byEngine[engines[i - 1]];
         ctx.strokeStyle = o.snap ? COLORS.gap : COLORS.axis;
         ctx.beginPath();

@@ -37,6 +37,18 @@ test('save: old saves gain new default fields on load', () => {
   eq(r.state.version, save.SAVE_VERSION);
 });
 
+test('save: wrong-typed known fields fall back to safe defaults', () => {
+  const bad = JSON.stringify({ player: 'evil', missions: 'abc', articles: 7, settings: 5, sol: 'nine' });
+  const r = save.deserialize(bad);
+  eq(r.ok, true);
+  eq(typeof r.state.player, 'object', 'player must stay an object');
+  eq(r.state.player.name, 'Junior Scientist');
+  ok(Array.isArray(r.state.articles), 'articles must stay an array');
+  eq(typeof r.state.missions, 'object');
+  eq(typeof r.state.settings, 'object');
+  eq(r.state.sol, 1, 'a non-number sol falls back to the default');
+});
+
 test('save: unknown future fields survive a round-trip', () => {
   const future = JSON.stringify(Object.assign(save.defaultState(), { wormholes: [1, 2] }));
   const r = save.deserialize(future);

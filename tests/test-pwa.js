@@ -35,6 +35,17 @@ test('pwa: every script/css/page index.html references is precached', () => {
   }
 });
 
+test('pwa: every sw.js precache entry exists on disk', () => {
+  const sw = read('sw.js');
+  const m = sw.match(/const ASSETS = \[([\s\S]*?)\];/);
+  ok(m, 'sw.js must declare an ASSETS array');
+  const entries = (m[1].match(/'([^']+)'/g) || []).map((s) => s.slice(1, -1));
+  ok(entries.length > 10, `suspiciously few precache entries: ${entries.length}`);
+  for (const e of entries) {
+    ok(fs.existsSync(path.join(root, e)), `sw.js precaches missing file: ${e} — cache.addAll would fail atomically`);
+  }
+});
+
 test('pwa: service worker never serves a non-index page for navigations to the app root', () => {
   const sw = read('sw.js');
   includes(sw, `'index.html'`, 'navigation fallback must be index.html');

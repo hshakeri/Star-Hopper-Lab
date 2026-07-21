@@ -46,7 +46,7 @@
       },
       // Zero-mean, bounded [-amp, amp], bell-shaped (sum of 3 uniforms).
       // This is the ONLY noise source worlds are allowed to use: unbiased by construction.
-      noise(amp) { return ((next() + next() + next()) - 1.5) / 1.5 * (amp || 1); },
+      noise(amp) { return ((next() + next() + next()) - 1.5) / 1.5 * (amp === undefined ? 1 : amp); },
       // Independent child stream (e.g. rng.fork('jokes')) so drawing a joke
       // never disturbs the physics stream.
       fork(label) { return makeRNG((s ^ hashString(String(label))) >>> 0); },

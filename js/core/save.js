@@ -26,17 +26,32 @@
   }
 
   // Shallow-merge loaded data onto defaults so old saves gain new fields
-  // and unknown future fields survive a round-trip.
+  // and unknown future fields survive a round-trip. Known fields must keep
+  // the default's shape (object/array/primitive) — a mistyped value from a
+  // hand-edited or corrupted save falls back to the default instead of
+  // crashing the game later.
   function mergeOntoDefaults(loaded) {
     const state = defaultState();
     for (const key in loaded) {
       const val = loaded[key];
-      if (val && typeof val === 'object' && !Array.isArray(val) &&
-          state[key] && typeof state[key] === 'object' && !Array.isArray(state[key])) {
-        state[key] = Object.assign({}, state[key], val);
-      } else if (val !== undefined) {
-        state[key] = val;
+      const def = state[key];
+      if (def !== undefined) {
+        const defIsArray = Array.isArray(def);
+        const defIsObject = !defIsArray && def !== null && typeof def === 'object';
+        if (defIsObject) {
+          if (val && typeof val === 'object' && !Array.isArray(val)) {
+            state[key] = Object.assign({}, def, val);
+          }
+          continue;
+        }
+        if (defIsArray) {
+          if (Array.isArray(val)) state[key] = val;
+          continue;
+        }
+        if (typeof val === typeof def) state[key] = val;
+        continue;
       }
+      if (val !== undefined) state[key] = val; // unknown future field: keep
     }
     state.version = SAVE_VERSION;
     return state;

@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const VERSION = '4';
+const VERSION = '5';
 const CACHE = 'star-hopper-lab-v' + VERSION;
 
 const ASSETS = [
@@ -67,8 +67,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // resolve the request path relative to the SW scope so subdirectory
+  // hosting (e.g. /star-hopper-lab/) still hits the precache keys
+  const scopePath = new URL(self.registration.scope).pathname;
+  const rel = url.pathname.indexOf(scopePath) === 0
+    ? url.pathname.slice(scopePath.length)
+    : url.pathname.replace(/^\//, '');
   event.respondWith(
-    caches.match(stamped(url.pathname.replace(/^\//, '')))
+    caches.match(stamped(rel))
       .then((hit) => hit || caches.match(req))
       .then((hit) => hit || fetch(req))
   );

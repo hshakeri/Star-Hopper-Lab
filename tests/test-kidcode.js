@@ -301,6 +301,65 @@ test('kidcode: empty program is fine and does nothing', () => {
   eq(r.output.length, 0);
 });
 
+test('kidcode: same-line suite ending in a block, then another statement', () => {
+  const { host, state } = makeHost();
+  const r = kidcode.run('repeat 2: repeat 2:\n  jump()\njump()', host);
+  ok(r.ok, r.error);
+  eq(state.jumpCount, 5);
+});
+
+test('when: rules keep firing across thousands of events (per-event op budget)', () => {
+  const { host, state } = makeHost();
+  const r = kidcode.run('when critter.spots > 5: friend()', host);
+  ok(r.ok, r.error);
+  let errors = 0;
+  for (let i = 0; i < 3000; i++) {
+    const res = kidcode.runWhenRules(r, 'critter', { spots: 9 });
+    errors += res.errors.length;
+  }
+  eq(state.friended, 3000, 'every event should fire the rule');
+  eq(errors, 0, 'no event should hit the op cap');
+});
+
+test('honesty: built-in data tools cannot be redefined into lying', () => {
+  const { host } = makeHost();
+  const r = kidcode.run('jump()\naverage(x) = 999\naverage(jumps)', host);
+  eq(r.ok, false);
+  includes(r.error, 'built-in lab tool');
+  const r2 = kidcode.run('jump(x) = 0', host);
+  eq(r2.ok, false);
+  includes(r2.error, 'built-in lab tool');
+});
+
+test('safety: a self-calling model gets a friendly circle error, not a crash', () => {
+  const { host } = makeHost();
+  const r = kidcode.run('boom(x) = boom(x)\nboom(1)', host);
+  eq(r.ok, false);
+  includes(r.error, 'circle');
+  ok(r.error.indexOf('call stack') < 0, 'raw engine errors must never surface');
+});
+
+test('safety: a parser bomb gets a friendly message, not a raw stack error', () => {
+  const { host } = makeHost();
+  const r = kidcode.run('x = ' + '('.repeat(20000) + '1' + ')'.repeat(20000), host);
+  eq(r.ok, false);
+  ok(r.error.indexOf('call stack') < 0, `raw engine error leaked: ${r.error}`);
+});
+
+test("errors: '=' in a comparison suggests '=='", () => {
+  const { host } = makeHost();
+  const r = kidcode.run('when critter.spots = 5: friend()', host);
+  eq(r.ok, false);
+  includes(r.error, '==');
+});
+
+test('errors: chained comparisons are explained', () => {
+  const { host } = makeHost();
+  const r = kidcode.run('x = 3\n1 < x < 5', host);
+  eq(r.ok, false);
+  includes(r.error, 'one comparison at a time');
+});
+
 test('levenshtein sanity', () => {
   eq(kidcode.levenshtein('avrage', 'average'), 1);
   eq(kidcode.levenshtein('same', 'same'), 0);

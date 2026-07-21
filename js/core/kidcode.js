@@ -237,7 +237,9 @@
         return { body, wasBlock: true };
       }
       const stmt = parseStatement();
-      return { body: [stmt], wasBlock: false };
+      // a same-line suite whose statement itself ended in an indented block
+      // has already consumed through its DEDENT
+      return { body: [stmt], wasBlock: !!stmt.wasBlock };
     }
 
     function parseSimple() {
@@ -265,11 +267,18 @@
 
     function parseExpr() {
       let left = parseAdditive();
-      const t = peek();
+      let t = peek();
+      if (t.type === 'OP' && t.value === '=') {
+        throw KidCodeError(`One '=' changes a value; two '==' asks "are they equal?" — here I think you want ==  (line ${t.line}).`, t.line);
+      }
       if (t.type === 'OP' && ['>', '<', '>=', '<=', '==', '!='].indexOf(t.value) >= 0) {
         advance();
         const right = parseAdditive();
-        return { type: 'Binary', op: t.value, left, right, line: t.line };
+        left = { type: 'Binary', op: t.value, left, right, line: t.line };
+        t = peek();
+        if (t.type === 'OP' && ['>', '<', '>=', '<=', '==', '!='].indexOf(t.value) >= 0) {
+          throw KidCodeError(`KidCode does one comparison at a time — instead of 1 < x < 5, try  x > 1  (line ${t.line}).`, t.line);
+        }
       }
       return left;
     }
@@ -433,6 +442,11 @@
       if (args.length !== 1) {
         throw KidCodeError(`${name}() takes exactly one number — like ${name}(5) — but got ${args.length} (line ${line}).`, line);
       }
+      env.modelDepth = (env.modelDepth || 0) + 1;
+      if (env.modelDepth > 16) {
+        env.modelDepth = 0;
+        throw KidCodeError(`${name}() keeps calling itself in a circle — a rule can't be built out of itself. Use start and slope instead! (line ${line})`, line);
+      }
       const savedOverlay = env.overlay;
       env.overlay = Object.assign({}, savedOverlay);
       env.overlay[model.param] = args[0];
@@ -440,6 +454,7 @@
         return evalExpr(env, model.expr);
       } finally {
         env.overlay = savedOverlay;
+        env.modelDepth--;
       }
     }
     // 2. host commands (jump, record, average, ...)
@@ -521,6 +536,12 @@
         return;
       }
       case 'ModelDef': {
+        // built-in data tools measure the world — they must never be
+        // redefinable into fabricating values (honest data!)
+        const host = env.host;
+        if (host.commands && Object.prototype.hasOwnProperty.call(host.commands, node.name)) {
+          throw KidCodeError(`${node.name}() is a built-in lab tool, so it can't be redefined — it always reports real measurements. Pick your own name, like my_${node.name}(...)  (line ${node.line}).`, node.line);
+        }
         env.models.set(node.name, { param: node.param, expr: node.expr, line: node.line });
         env.output.push(`Saved your ${node.name}(${node.param}) rule.`);
         return;
@@ -576,7 +597,10 @@
       program = parse(tokenize(source));
     } catch (e) {
       result.ok = false;
-      result.error = e.message;
+      // never surface raw engine internals (e.g. "Maximum call stack size
+      // exceeded") to a nine-year-old
+      result.error = e.friendly ? e.message
+        : `That program tied my reader in a knot — try breaking it into smaller, simpler lines.`;
       result.errorLine = e.line || null;
       return result;
     }
@@ -601,6 +625,9 @@
   function runWhenRules(result, subjectName, subject) {
     const env = result.env;
     if (!env) return { fired: 0, errors: ['No program has run yet.'] };
+    // fresh work budget per event: the ops cap bounds each event's work,
+    // not the lifetime number of events (Sorter Station checks hundreds)
+    env.ops = 0;
     const savedOverlay = env.overlay;
     const overlay = Object.assign({}, savedOverlay);
     overlay[subjectName] = subject;

@@ -10,9 +10,11 @@
   const simMod = isNode ? require('./sim.js') : (window.SHL && window.SHL.sim);
   const statsMod = isNode ? require('./stats.js') : (window.SHL && window.SHL.stats);
 
-  // World rendering scale, shared with the canvas renderer and the
-  // near-miss-visibility sweep: 12 px per metre.
+  // World rendering scale and width — the SINGLE source of truth shared by
+  // the canvas renderer (js/game/world.js), the near-miss-visibility sweep,
+  // and the tests. 12 px per metre; the field is 52 m wide.
   const PX_PER_M = 12;
+  const WORLD_WIDTH_M = 52;
 
   const TERRA_M1 = {
     id: 'terra-1',
@@ -49,7 +51,10 @@
       if (e > mn && e < mx) inside.push(e);
       else outside.push(e);
     }
-    const pool = inside.length ? inside : (outside.length ? outside : [3, 5, 7]);
+    // if every engine has been tested there is nothing untested to offer;
+    // pick any setting (the UI must then say "one you already know")
+    const pool = inside.length ? inside : outside;
+    if (!pool.length) return rng.int(mission.engineMin, mission.engineMax);
     return pool[Math.floor(rng.next() * pool.length)];
   }
 
@@ -108,7 +113,7 @@
     return statsMod.linearFit(xs, ys);
   }
 
-  const api = { PX_PER_M, TERRA_M1, chooseTargetEngine, evaluatePrediction, solvabilitySweep, recoverEngineLaw };
+  const api = { PX_PER_M, WORLD_WIDTH_M, TERRA_M1, chooseTargetEngine, evaluatePrediction, solvabilitySweep, recoverEngineLaw };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') { window.SHL = window.SHL || {}; window.SHL.missions = api; }
 })();

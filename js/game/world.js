@@ -6,8 +6,10 @@
 (function () {
   'use strict';
 
-  const PX_PER_M = 12;            // must match missions.PX_PER_M
-  const WORLD_WIDTH_M = 52;       // must match tests/test-missions.js
+  // scale constants come from the missions module — one source of truth,
+  // so the ≥20px near-miss sweep verifies the numbers the renderer uses
+  const PX_PER_M = window.SHL.missions.PX_PER_M;
+  const WORLD_WIDTH_M = window.SHL.missions.WORLD_WIDTH_M;
   const ORIGIN_X = 16;            // pad edge: where distance = 0
   const GROUND_Y = 300;
 
@@ -95,7 +97,7 @@
     // metre ruler: honest instrument, ticks every 5 m, labels every 10 m
     ctx.strokeStyle = '#8fa3c8';
     ctx.fillStyle = '#8fa3c8';
-    ctx.font = '12px ui-monospace, Menlo, monospace';
+    ctx.font = '14px ui-monospace, Menlo, monospace';
     ctx.textAlign = 'center';
     for (let m = 0; m <= WORLD_WIDTH_M; m += 5) {
       const x = mx(m);
@@ -134,8 +136,9 @@
     ctx.lineTo(xp + 16, GROUND_Y - 50);
     ctx.lineTo(xp, GROUND_Y - 44);
     ctx.fill();
-    ctx.font = '12px ui-monospace, Menlo, monospace';
+    ctx.font = '14px ui-monospace, Menlo, monospace';
     ctx.textAlign = 'center';
+    ctx.font = '14px ui-monospace, Menlo, monospace';
     ctx.fillText(window.SHL.chartscale.formatValue(p.m) + ' m', xp, GROUND_Y - 62);
   }
 
@@ -146,7 +149,7 @@
     drawHopperSprite(ctx, x, GROUND_Y, 0, '#8fa3c8');
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#8fa3c8';
-    ctx.font = '11px ui-monospace, Menlo, monospace';
+    ctx.font = '14px ui-monospace, Menlo, monospace';
     ctx.textAlign = 'center';
     ctx.fillText('last try', x, GROUND_Y - 40);
   }
@@ -246,7 +249,8 @@
       state.hopperM = p.x;
       state.hopperY = p.y;
       drawHopperSprite(ctx, mx(p.x), GROUND_Y - p.y * PX_PER_M, 0);
-      if (a.elapsed / 1000 < 0.12 / state.speed) {
+      // flames only during the launch impulse — never while coasting
+      if ((now - a.start) / 1000 < 0.12 / state.speed) {
         drawThruster(ctx, mx(p.x), GROUND_Y - p.y * PX_PER_M - 6);
       }
       if (idx >= trace.length - 1) finishAnim(a);
@@ -311,6 +315,7 @@
   function setPrevGhost(m) { state.prevGhostM = m; }
   function landingScreenX(m) { return mx(m); }
   function reset() {
+    if (state.anim && state.anim.failsafe) clearTimeout(state.anim.failsafe);
     state.anim = null;
     state.particles = [];
     state.prediction = null;
