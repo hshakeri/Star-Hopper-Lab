@@ -64,9 +64,9 @@
   function say(text, who) {
     const el = $('speech-bubble');
     el.textContent = (who === 'duck' ? '🦆 ' : '🤖 ') + text;
-    el.classList.remove('hidden');
+    el.classList.remove('off');
     clearTimeout(speechTimer);
-    speechTimer = setTimeout(() => el.classList.add('hidden'), 7000);
+    speechTimer = setTimeout(() => el.classList.add('off'), 8000);
   }
 
   function impactWord(kind, atM) {
@@ -157,7 +157,7 @@
   }
 
   function runSource(source) {
-    if (animating) return;
+    if (animating) { say('One moment — Hopper is mid-experiment!'); return; }
     pendingJumps = [];
     const result = S.kidcode.run(source, makeHost());
     S.gameconsole.showResult(result);
@@ -192,6 +192,7 @@
     animating = true;
     let i = 0;
     const total = jumps.length;
+    const t0 = Date.now();
     const step = () => {
       if (i >= total) {
         animating = false;
@@ -201,8 +202,14 @@
       }
       const result = jumps[i];
       S.world.setMontageText(`Trial ${i + 1}/${total}`);
-      S.audio.montageTick(i);
       i++;
+      // fast-forward guarantee: the whole montage takes at most ~3 s of
+      // real time, even on slow or throttled devices
+      if (Date.now() - t0 > 3000) {
+        step();
+        return;
+      }
+      S.audio.montageTick(i - 1);
       S.world.animateJump(result, { montage: true, onDone: step });
     };
     step();
@@ -221,12 +228,13 @@
     publish: 'Turn your notebook page into a Hopper Journal article!',
   };
 
+  // test's next button only appears AFTER the official run (see finishOfficial)
   const NEXT_LABELS = {
     question: '🔬 Start collecting →',
     collect: '📈 To the chart! →',
     chart: '🎯 I see a pattern →',
     predict: null,
-    test: '📰 Write it up! →',
+    test: null,
     publish: null,
   };
 
@@ -375,7 +383,8 @@
   }
 
   function runOfficial() {
-    if (animating || !M.committed) return;
+    if (animating) { say('One moment — Hopper is still finishing the last run!'); return; }
+    if (!M.committed) return;
     $('btn-official').disabled = true;
     const result = S.sim.simulateJump({ engine: M.targetEngine, params: M.params });
     lastJump = result;
@@ -422,7 +431,7 @@
     $('btn-official').disabled = false;
     $('btn-retry').classList.remove('hidden');
     $('btn-phase-next').classList.remove('hidden');
-    $('btn-phase-next').textContent = NEXT_LABELS.test;
+    $('btn-phase-next').textContent = '📰 Write it up! →';
     $('btn-phase-next').disabled = false;
   }
 

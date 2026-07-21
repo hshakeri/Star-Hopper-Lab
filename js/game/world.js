@@ -234,11 +234,12 @@
     drawPrediction(ctx);
     drawPrevGhost(ctx);
 
-    // active jump animation
+    // active jump animation — advances on wall-clock time so throttled
+    // frames (background tabs) never slow the run down or lock the UI
     const a = state.anim;
     if (a) {
-      a.elapsed += dt * 1000 * state.speed;
-      const simT = (a.elapsed / 1000) * (a.result.airtime / a.duration);
+      if (a.start == null) a.start = now;
+      const simT = ((now - a.start) / 1000) * state.speed * (a.result.airtime / a.duration);
       const trace = a.result.trace;
       const idx = Math.min(trace.length - 1, Math.floor(simT / (trace[1] ? trace[1].t : 0.01)));
       const p = trace[idx];
@@ -248,12 +249,7 @@
       if (a.elapsed / 1000 < 0.12 / state.speed) {
         drawThruster(ctx, mx(p.x), GROUND_Y - p.y * PX_PER_M - 6);
       }
-      if (idx >= trace.length - 1) {
-        state.anim = null;
-        state.hopperY = 0;
-        burst(a.result.distance, '#54e0ff');
-        if (a.onDone) a.onDone();
-      }
+      if (idx >= trace.length - 1) finishAnim(a);
     } else {
       // idle Hopper, gentle bounce (skipped under reduced motion)
       state.idleT += dt;
@@ -275,6 +271,17 @@
     }
   }
 
+  // Complete a jump animation exactly once: land Hopper, burst, fire onDone.
+  function finishAnim(a) {
+    if (state.anim !== a) return; // already finished
+    if (a.failsafe) clearTimeout(a.failsafe);
+    state.anim = null;
+    state.hopperM = a.result.distance;
+    state.hopperY = 0;
+    burst(a.result.distance, '#54e0ff');
+    if (a.onDone) a.onDone();
+  }
+
   /* Play one jump. opts: { montage, onDone } */
   function animateJump(result, opts) {
     const o = opts || {};
@@ -289,7 +296,11 @@
     state.speed = o.montage ? 6 : 1;
     // fast-forward guarantee: nothing plays longer than 3 s real time
     const duration = Math.min(result.airtime, 3);
-    state.anim = { result, elapsed: 0, duration, onDone: o.onDone };
+    const anim = { result, start: null, duration, onDone: o.onDone };
+    // wall-clock failsafe: even if the browser starves requestAnimationFrame
+    // (hidden or throttled tabs), the run still completes on time
+    anim.failsafe = setTimeout(() => finishAnim(anim), (duration / state.speed) * 1000 + 120);
+    state.anim = anim;
   }
 
   function setFast() { state.speed = Math.max(state.speed, 4); }

@@ -171,8 +171,10 @@
       const body = [];
       while (peek().type !== 'EOF') {
         if (peek().type === 'NEWLINE' || peek().type === 'DEDENT') { advance(); continue; }
-        body.push(parseStatement());
-        endOfStatement();
+        const stmt = parseStatement();
+        body.push(stmt);
+        // a block suite already consumed through its DEDENT — no NEWLINE left
+        if (!stmt.wasBlock) endOfStatement();
       }
       return { type: 'Program', body };
     }
@@ -198,7 +200,8 @@
         throw KidCodeError(`repeat needs a ':' after the number — like  repeat 5: jump()  (line ${kw.line}).`, kw.line);
       }
       advance();
-      return { type: 'Repeat', count, body: parseSuite(kw.line), line: kw.line };
+      const suite = parseSuite(kw.line);
+      return { type: 'Repeat', count, body: suite.body, wasBlock: suite.wasBlock, line: kw.line };
     }
 
     function parseWhen() {
@@ -208,7 +211,8 @@
         throw KidCodeError(`when needs a ':' after the test — like  when critter.spots > 5: friend()  (line ${kw.line}).`, kw.line);
       }
       advance();
-      return { type: 'When', cond, body: parseSuite(kw.line), line: kw.line };
+      const suite = parseSuite(kw.line);
+      return { type: 'When', cond, body: suite.body, wasBlock: suite.wasBlock, line: kw.line };
     }
 
     function parseSuite(startLine) {
@@ -222,15 +226,18 @@
         const body = [];
         while (peek().type !== 'DEDENT' && peek().type !== 'EOF') {
           if (peek().type === 'NEWLINE') { advance(); continue; }
-          body.push(parseStatement());
-          endOfStatement();
-          if (peek().type === 'NEWLINE') advance();
+          const stmt = parseStatement();
+          body.push(stmt);
+          if (!stmt.wasBlock) {
+            endOfStatement();
+            if (peek().type === 'NEWLINE') advance();
+          }
         }
         if (peek().type === 'DEDENT') advance();
-        return body;
+        return { body, wasBlock: true };
       }
       const stmt = parseStatement();
-      return [stmt];
+      return { body: [stmt], wasBlock: false };
     }
 
     function parseSimple() {

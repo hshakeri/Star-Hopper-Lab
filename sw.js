@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const VERSION = '1';
+const VERSION = '4';
 const CACHE = 'star-hopper-lab-v' + VERSION;
 
 const ASSETS = [

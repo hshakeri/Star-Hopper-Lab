@@ -64,6 +64,29 @@ test('kidcode: repeat with indented block', () => {
   eq(state.recorded.length, 3);
 });
 
+test('kidcode: a statement AFTER an indented block parses (the Jump Squad shape)', () => {
+  const { host, state } = makeHost();
+  const r = kidcode.run('hopper.engine = 5\nrepeat 5:\n  jump()\naverage(jumps)', host);
+  ok(r.ok, r.error);
+  eq(state.jumpCount, 5);
+  eq(r.value, 21.5);
+});
+
+test('kidcode: a statement after a nested block inside a block parses', () => {
+  const { host, state } = makeHost();
+  const r = kidcode.run('repeat 2:\n  repeat 2:\n    jump()\n  jump()\njump()', host);
+  ok(r.ok, r.error);
+  eq(state.jumpCount, 7);
+});
+
+test('kidcode: a when-block followed by another statement parses', () => {
+  const { host, state } = makeHost();
+  const r = kidcode.run('when critter.spots > 5:\n  friend()\njump()', host);
+  ok(r.ok, r.error);
+  eq(state.jumpCount, 1);
+  eq(r.whenRules.length, 1);
+});
+
 test('kidcode: nested repeats work', () => {
   const { host, state } = makeHost();
   const r = kidcode.run('repeat 3:\n  repeat 2:\n    jump()', host);

@@ -217,6 +217,8 @@ main { max-width: 1100px; margin: 0 auto; padding: 14px; }
   100% { transform: scale(1); }
 }
 
+/* the bubble fades instead of collapsing: buttons must never move under a
+   child's finger */
 #speech-bubble {
   margin-top: 8px;
   background: var(--bg-panel);
@@ -224,8 +226,10 @@ main { max-width: 1100px; margin: 0 auto; padding: 14px; }
   border-radius: 12px;
   padding: 8px 12px;
   font-size: 15px;
-  min-height: 24px;
+  min-height: 44px;
+  transition: opacity 0.4s ease;
 }
+#speech-bubble.off { opacity: 0; }
 
 #vars-panel {
   display: flex;
