@@ -11,7 +11,9 @@ research.
 
 ## Play
 
-Open `index.html` in any modern browser — no build step, no install, no
+**Play it now: <https://hshakeri.github.io/Star-Hopper-Lab/>**
+
+Or open `index.html` in any modern browser — no build step, no install, no
 network needed after first load (it's a PWA). Or serve it locally:
 
 ```
